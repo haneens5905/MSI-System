@@ -1,3 +1,6 @@
+# augments the raw dataset and balances all classes to 500 images each
+# run: python src/augmentation.py
+
 import os
 import cv2
 import numpy as np
@@ -5,10 +8,10 @@ from sklearn.model_selection import train_test_split
 import shutil
 from tqdm import tqdm
 
-# ========== CONFIGURATION ==========
-# Resolve paths relative to this script's location (project root = parent of src/)
+# -- configuration --
+# paths are relative to this script so it works on any machine
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(CURRENT_DIR)  # Go up from src/ to project root
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 
 ORIGINAL_DATASET_PATH = os.path.join(PROJECT_ROOT, "data/raw")
 AUGMENTED_DATASET_PATH = os.path.join(PROJECT_ROOT, "data/augmented")
@@ -16,59 +19,60 @@ TARGET_IMAGES_PER_CLASS = 500
 VALIDATION_SPLIT = 0.2
 RANDOM_SEED = 42
 
-# ========== HELPER FUNCTIONS ==========
+
+# -- helper functions --
 def apply_random_augmentations(img):
-    """Apply random augmentations to an image using OpenCV."""
+    # randomly applies a mix of transforms to create a new image variant
     aug_img = img.copy()
-    
-    # Random 90° rotations
+
+    # random 90 degree rotations
     if np.random.rand() < 0.5:
-        k = np.random.randint(0, 4)  # 0, 1, 2, or 3 (0°, 90°, 180°, 270°)
+        k = np.random.randint(0, 4)  # 0, 1, 2, or 3 maps to 0, 90, 180, 270 degrees
         if k == 1:
             aug_img = cv2.rotate(aug_img, cv2.ROTATE_90_CLOCKWISE)
         elif k == 2:
             aug_img = cv2.rotate(aug_img, cv2.ROTATE_180)
         elif k == 3:
             aug_img = cv2.rotate(aug_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    
-    # Horizontal flip
+
+    # horizontal flip
     if np.random.rand() < 0.5:
         aug_img = cv2.flip(aug_img, 1)
-    
-    # Vertical flip
+
+    # vertical flip (less frequent than horizontal)
     if np.random.rand() < 0.3:
         aug_img = cv2.flip(aug_img, 0)
-    
-    # Brightness and contrast adjustment
+
+    # brightness and contrast adjustment
     if np.random.rand() < 0.7:
         brightness = np.random.uniform(0.8, 1.2)
         contrast = np.random.uniform(0.8, 1.2)
         aug_img = cv2.convertScaleAbs(aug_img, alpha=contrast, beta=brightness * 50)
-    
-    # Add Gaussian noise
+
+    # add gaussian noise to simulate real-world variation
     if np.random.rand() < 0.3:
         noise = np.random.normal(0, np.random.uniform(10, 50), aug_img.shape)
         aug_img = np.clip(aug_img + noise, 0, 255).astype(np.uint8)
-    
-    # Affine transformation (rotation, scaling, translation)
+
+    # affine transformation (slight rotation, scale, and shift combined)
     if np.random.rand() < 0.6:
         h, w = aug_img.shape[:2]
         center = (w // 2, h // 2)
         angle = np.random.uniform(-30, 30)
         scale = np.random.uniform(0.8, 1.2)
-        
+
         matrix = cv2.getRotationMatrix2D(center, angle, scale)
-        # Add translation
+        # add a small random translation
         matrix[0, 2] += np.random.uniform(-w * 0.1, w * 0.1)
         matrix[1, 2] += np.random.uniform(-h * 0.1, h * 0.1)
-        
+
         aug_img = cv2.warpAffine(aug_img, matrix, (w, h))
-    
+
     return aug_img
 
 
 def load_images_from_folder(folder_path):
-    """Load all images from a folder into a list."""
+    # loads all valid images from a folder into a list
     images = []
     for filename in os.listdir(folder_path):
         if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
@@ -79,44 +83,44 @@ def load_images_from_folder(folder_path):
 
 
 def save_image(img, save_path):
-    """Save an image."""
+    # saves a single image to disk
     cv2.imwrite(save_path, img)
 
 
 def augment_images(images, target_count):
-    """Apply augmentation until we reach target_count images."""
+    # keeps all originals then generates new variants until we hit the target
     augmented = []
     original_count = len(images)
-    
-    # First, add all original images
+
+    # start with all original images
     augmented.extend(images)
-    
-    # If we already have enough, return a random subset
+
+    # if we already have enough originals, just return a subset
     if original_count >= target_count:
         return augmented[:target_count]
-    
-    # Need to generate (target_count - original_count) new images
+
+    # generate the remaining needed images
     needed = target_count - original_count
     current = original_count
-    
-    pbar = tqdm(total=needed, desc=f"Augmenting {needed} images")
+
+    pbar = tqdm(total=needed, desc=f"augmenting {needed} images")
     while current < target_count:
-        # Pick a random original image
+        # pick a random original image to augment
         idx = np.random.randint(0, original_count)
         img = images[idx]
-        
-        # Apply random augmentation using OpenCV
+
+        # apply random augmentation and add to the list
         aug_img = apply_random_augmentations(img)
         augmented.append(aug_img)
         current += 1
         pbar.update(1)
     pbar.close()
-    
+
     return augmented
 
 
 def create_class_folders(base_path, class_names):
-    """Create folder structure for train/val splits."""
+    # creates train/val subfolders for each class
     splits = ['train', 'val']
     for split in splits:
         for class_name in class_names:
@@ -124,61 +128,62 @@ def create_class_folders(base_path, class_names):
 
 
 def save_split_images(split_path, class_name, images):
-    """Save a list of images to the given split folder."""
+    # saves a list of images into the correct class subfolder
     for i, img in enumerate(images):
         save_path = os.path.join(split_path, class_name, f"{class_name}_{i}.jpg")
         save_image(img, save_path)
 
 
-# ========== MAIN PIPELINE ==========
+# -- main pipeline --
 def main():
     class_names = ['glass', 'paper', 'cardboard', 'plastic', 'metal', 'trash']
-    
-    # Create augmented dataset directory
+    np.random.seed(RANDOM_SEED)  # fix seed so results are reproducible
+
+    # wipe and recreate the augmented folder to start fresh
     if os.path.exists(AUGMENTED_DATASET_PATH):
         shutil.rmtree(AUGMENTED_DATASET_PATH)
     os.makedirs(AUGMENTED_DATASET_PATH)
-    
-    # Create train/val subfolders
+
+    # create train/val subfolders for each class
     create_class_folders(AUGMENTED_DATASET_PATH, class_names)
-    
+
     all_class_images = {}
-    
-    # Step 1: Load original images for each class
-    print("Loading original images...")
+
+    # step 1: load original images for each class
+    print("loading original images...")
     for class_name in class_names:
         class_path = os.path.join(ORIGINAL_DATASET_PATH, class_name)
         images = load_images_from_folder(class_path)
-        print(f"{class_name}: {len(images)} original images")
+        print(f"  {class_name}: {len(images)} images")
         all_class_images[class_name] = images
-    
-    # Step 2: Augment each class to reach TARGET_IMAGES_PER_CLASS
-    print(f"\nAugmenting to reach {TARGET_IMAGES_PER_CLASS} images per class...")
+
+    # step 2: augment each class until we reach the target count
+    print(f"\naugmenting to {TARGET_IMAGES_PER_CLASS} images per class...")
     augmented_class_images = {}
     for class_name in class_names:
         orig_imgs = all_class_images[class_name]
-        target = TARGET_IMAGES_PER_CLASS
-        augmented = augment_images(orig_imgs, target)
+        augmented = augment_images(orig_imgs, TARGET_IMAGES_PER_CLASS)
         augmented_class_images[class_name] = augmented
-        print(f"{class_name}: {len(augmented)} images after augmentation")
-    
-    # Step 3: Train/validation split (80/20)
-    print("\nSplitting into train and validation sets...")
+        print(f"  {class_name}: {len(augmented)} images after augmentation")
+
+    # step 3: split into train/val (80/20) and save to disk
+    print("\nsplitting into train and val sets...")
     for class_name in class_names:
         images = augmented_class_images[class_name]
         train_imgs, val_imgs = train_test_split(images, test_size=VALIDATION_SPLIT, random_state=RANDOM_SEED)
-        
-        # Save to respective folders
+
+        # save each split to its folder
         train_path = os.path.join(AUGMENTED_DATASET_PATH, 'train')
         val_path = os.path.join(AUGMENTED_DATASET_PATH, 'val')
-        
+
         save_split_images(train_path, class_name, train_imgs)
         save_split_images(val_path, class_name, val_imgs)
-        
-        print(f"{class_name}: train={len(train_imgs)}, val={len(val_imgs)}")
-    
-    print(f"\n Augmented dataset saved to: {AUGMENTED_DATASET_PATH}")
+
+        print(f"  {class_name}: train={len(train_imgs)}, val={len(val_imgs)}")
+
+    print(f"\ndone. augmented dataset saved to: {AUGMENTED_DATASET_PATH}")
 
 
 if __name__ == "__main__":
     main()
+

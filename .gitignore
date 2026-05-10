@@ -17,3 +17,6 @@ Thumbs.db
 
 # Environment
 .env
+
+# vscode editor settings
+.vscode/
