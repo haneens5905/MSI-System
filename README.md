@@ -75,8 +75,7 @@ MSI-System/
 │   └── realtime_app.py             # real-time camera classification app
 │
 ├── report/
-│   ├── project_brief.pdf           # original project requirements
-│   └── technical_report.pdf        # final technical report
+│   └── MSI_Report.pdf              # technical report
 │
 ├── requirements.txt
 ├── .gitignore
