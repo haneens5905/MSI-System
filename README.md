@@ -45,6 +45,34 @@ Raw Images
 
 ---
 
+## Results
+
+| Model | Best Configuration | Validation Accuracy |
+|-------|-------------------|-------------------|
+| SVM | C=5, RBF kernel | 71.00% |
+| k-NN | k=11, distance weighting | 55.00% |
+
+SVM was selected as the deployment model based on its superior accuracy and faster prediction time.
+
+### SVM Confusion Matrix
+![SVM Confusion Matrix](models/svm_confusion_matrix.png)
+
+### k-NN Confusion Matrix
+![k-NN Confusion Matrix](models/knn_confusion_matrix.png)
+
+### k-NN Hyperparameter Sweep
+![k-NN Hyperparameter Sweep](models/knn_experiment_results.png)
+
+---
+
+## Real-Time Demo
+
+> Screenshot coming soon.
+
+The live camera application captures frames, extracts features, and displays the predicted material class with confidence percentage in real time. Press **Q** to quit.
+
+---
+
 ## Repository Structure
 
 ```
@@ -77,7 +105,7 @@ MSI-System/
 │   └── realtime_app.py             # real-time camera classification app
 │
 ├── report/
-│   └── MSI_Report.pdf              # technical report
+│   └── MSI_Report.docx             # technical report
 │
 ├── requirements.txt
 ├── .gitignore
@@ -102,8 +130,6 @@ The trained SVM model is too large for GitHub. Download it and place it in `mode
 
 ## How to Run
 
-Run each script in order from the project root:
-
 ```bash
 # step 1 — augment and balance the dataset
 python src/augmentation.py
@@ -121,19 +147,6 @@ python src/train_knn.py
 python src/realtime_app.py
 ```
 
-Press **Q** to quit the camera app.
-
----
-
-## Results
-
-| Model | Best Configuration | Validation Accuracy |
-|-------|-------------------|-------------------|
-| SVM | C=5, RBF kernel | 71.00% |
-| k-NN | k=11, distance weighting | 55.00% |
-
-SVM was selected as the deployment model based on its superior accuracy and faster prediction time.
-
 ---
 
 ## Technologies Used
@@ -147,3 +160,5 @@ SVM was selected as the deployment model based on its superior accuracy and fast
 | NumPy | Feature vector storage and manipulation |
 | joblib | Model serialization |
 | Pillow | Image loading and augmentation |
+| seaborn | Confusion matrix visualization |
+| tqdm | Progress bars during training and extraction |
