@@ -13,35 +13,93 @@ Automated waste material classification system using SVM and k-NN on image featu
 
 ---
 
-## Overview
+## Project Overview
 
-This system implements a full end-to-end machine learning pipeline for identifying waste materials from images. Raw images are converted into numerical feature vectors using handcrafted descriptors, two classifiers are trained and compared, and the best-performing model is deployed in a live camera application that classifies materials in real time.
-
----
-
-## Material Classes
-
-| ID | Class | Description |
-|----|-------|-------------|
-| 0 | Glass | Bottles, jars |
-| 1 | Paper | Newspapers, office paper |
-| 2 | Cardboard | Boxes, packaging |
-| 3 | Plastic | Water bottles, film |
-| 4 | Metal | Aluminum cans, steel |
-| 5 | Trash | Non-recyclable or contaminated waste |
-| 6 | Unknown | Out-of-distribution or low-confidence inputs |
+- Converts raw waste material images into fixed-length numerical feature vectors using **HOG**, **HSV Color Histogram**, and **LBP** descriptors
+- Trains and compares two classifiers: **Support Vector Machine (SVM)** and **k-Nearest Neighbors (k-NN)**
+- Implements a **confidence-based rejection mechanism** to handle unknown or ambiguous inputs
+- Deploys the best-performing model in a **live real-time camera application**
 
 ---
 
-## Pipeline
+## Dataset
 
-```
-Raw Images
-    ↓ Data Augmentation       — balance all classes to 500 images each
-    ↓ Feature Extraction      — HOG + HSV Histogram + LBP → 2302-dim vector
-    ↓ Classifier Training     — SVM (71%) and k-NN (55%)
-    ↓ Real-Time Deployment    — live camera app using best model (SVM)
-```
+The dataset contains images across six material classes organized into separate folders. Images vary in size, lighting, and orientation — reflecting real-world capture conditions.
+
+| Class | Original Count |
+|-------|---------------|
+| Cardboard | 259 |
+| Glass | 401 |
+| Metal | 328 |
+| Paper | 476 |
+| Plastic | 386 |
+| Trash | 110 |
+| **Total** | **1960** |
+
+The dataset is included in `data/raw/` and is augmented to 500 images per class (3000 total) before training.
+
+---
+
+## How It Works
+
+### 1. Data Augmentation
+
+Each class is augmented to exactly **500 images** using a combination of random transforms applied independently per image:
+
+| Technique | Probability | Purpose |
+|-----------|-------------|---------|
+| Rotation (90°) | 50% | Handles arbitrary object orientation |
+| Horizontal Flip | 50% | Simulates mirrored captures |
+| Vertical Flip | 30% | Additional orientation variation |
+| Color Jitter | 70% | Simulates varying lighting conditions |
+| Gaussian Noise | 30% | Mimics sensor noise in cameras |
+| Affine Transform | 60% | Simulates perspective and scale changes |
+
+The dataset grows from **1960 to 3000 images — a 53% increase**. Images are then split 80/20 into training (2400) and validation (600) sets.
+
+---
+
+### 2. Feature Extraction
+
+Each image is resized to **128×128 pixels** then converted into a **2302-dimensional feature vector** by concatenating three descriptors:
+
+| Descriptor | What it captures | Dimensions |
+|------------|-----------------|------------|
+| HOG | Shape and edge structure | 1764 |
+| HSV Color Histogram | Color distribution (lighting-robust) | 512 |
+| LBP | Surface texture | 26 |
+| **Total** | | **2302** |
+
+All feature vectors are standardized using **StandardScaler** (fitted on training data only) before being passed to the classifiers.
+
+---
+
+### 3. Classifiers
+
+**SVM** — finds the maximum-margin decision boundary in the 2302-dimensional feature space.
+
+| Parameter | Value | Reason |
+|-----------|-------|--------|
+| Kernel | RBF | Handles non-linear class boundaries |
+| C | 5 (best from search over 1–500) | Optimal regularization |
+| Gamma | scale | Auto-scales based on feature variance |
+| Class weight | balanced | Handles remaining class imbalance |
+
+**k-NN** — classifies by majority vote among the k nearest neighbors in feature space.
+
+| Parameter | Value | Reason |
+|-----------|-------|--------|
+| k | 11 (best from search over 1–15) | Optimal neighborhood size |
+| Weighting | distance | Closer neighbors weigh more |
+| Metric | Euclidean | Standard for normalized features |
+
+---
+
+### 4. Rejection Mechanism (Unknown Class)
+
+Both classifiers support `predict_proba()`, which outputs a confidence score per class. If the highest confidence score is **below 0.5**, the input is classified as **Unknown** instead of forcing a prediction. This handles blurred frames, mixed materials, or objects outside the six trained classes.
+
+The threshold is configurable via `CONFIDENCE_THRESHOLD` in `realtime_app.py`.
 
 ---
 
@@ -52,7 +110,7 @@ Raw Images
 | SVM | C=5, RBF kernel | 71.00% |
 | k-NN | k=11, distance weighting | 55.00% |
 
-SVM was selected as the deployment model based on its superior accuracy and faster prediction time.
+SVM was selected as the deployment model. k-NN underperforms significantly on the 2302-dimensional feature space due to the **curse of dimensionality** — distances between high-dimensional points become increasingly uniform, making nearest-neighbor search unreliable.
 
 ### SVM Confusion Matrix
 ![SVM Confusion Matrix](models/svm_confusion_matrix.png)
@@ -62,6 +120,69 @@ SVM was selected as the deployment model based on its superior accuracy and fast
 
 ### k-NN Hyperparameter Sweep
 ![k-NN Hyperparameter Sweep](models/knn_experiment_results.png)
+
+---
+
+## Evaluation
+
+Models were evaluated on a held-out validation set of **600 images** (100 per class) that were never seen during training. The following metrics were computed:
+
+- **Overall accuracy** — percentage of correctly classified images
+- **Per-class precision** — of all predictions for a class, how many were correct
+- **Per-class recall** — of all true instances of a class, how many were correctly identified
+- **F1-score** — harmonic mean of precision and recall per class
+- **Confusion matrix** — full breakdown of predictions vs true labels
+
+### Per-Class F1 Comparison
+
+| Class | SVM F1 | k-NN F1 |
+|-------|--------|---------|
+| Glass | 0.65 | 0.54 |
+| Paper | 0.83 | 0.73 |
+| Cardboard | 0.82 | 0.60 |
+| Plastic | 0.67 | 0.55 |
+| Metal | 0.63 | 0.36 |
+| Trash | 0.68 | 0.50 |
+
+---
+
+## Key Findings
+
+- SVM consistently outperforms k-NN across all six classes — the gap is largest for **metal** (0.63 vs 0.36) and **cardboard** (0.82 vs 0.60)
+- **Paper and cardboard** are the easiest classes to classify, likely due to their distinctive flat texture and neutral color profile
+- **Glass and metal** are the hardest — both have low saturation, reflective surfaces, and overlapping color distributions
+- **Distance weighting** in k-NN consistently outperforms uniform weighting across all k values
+- k-NN training accuracy is **1.0 for all distance-weighted configurations**, indicating severe overfitting
+- The 71% SVM accuracy reflects the inherent limitations of handcrafted descriptors on visually similar material classes — deep feature extraction would likely improve this significantly
+
+---
+
+## Sample Output
+
+Running `train_svm.py`:
+```
+loading feature vectors...
+  X_train: (2400, 2302) | X_val: (600, 2302)
+searching over c values (rbf kernel, gamma=scale)...
+
+  c=1     → val accuracy = 69.67%
+  c=5     → val accuracy = 71.00%
+  c=10    → val accuracy = 70.83%
+  ...
+
+  best c: 5
+  best val accuracy: 71.00%
+
+per-class report:
+              precision    recall  f1-score   support
+       glass       0.66      0.64      0.65       100
+       paper       0.85      0.81      0.83       100
+   cardboard       0.84      0.80      0.82       100
+     plastic       0.75      0.60      0.67       100
+       metal       0.59      0.66      0.63       100
+       trash       0.61      0.75      0.68       100
+    accuracy                           0.71       600
+```
 
 ---
 
@@ -162,28 +283,3 @@ python src/realtime_app.py
 | Pillow | Image loading and augmentation |
 | seaborn | Confusion matrix visualization |
 | tqdm | Progress bars during training and extraction |
-
----
-
-## Contributors
-
-<table>
-  <tr>
-    <td align="center">
-      <b>Shaza Moatasem</b><br/>
-      <a href="https://github.com/shaza-22">@shaza-22</a>
-    </td>
-    <td align="center">
-      <b>Ziad Tarek</b><br/>
-      <a href="https://github.com/ziad-91">@ziad-91</a>
-    </td>
-    <td align="center">
-      <b>Seif Waleed</b><br/>
-      <a href="https://github.com/Malware404seif">@Malware404seif</a>
-    </td>
-    <td align="center">
-      <b>Mohamed Ahmed</b><br/>
-      <a href="https://github.com/mohamed-hamza20">@mohamed-hamza20</a>
-    </td>
-  </tr>
-</table>
