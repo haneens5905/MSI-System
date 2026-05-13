@@ -54,9 +54,9 @@ Raw Images
 
 SVM was selected as the deployment model based on its superior accuracy and faster prediction time.
 
-### Confusion Matrices
-
-<img src="models/svm_confusion_matrix.png" width="430"/> <img src="models/knn_confusion_matrix.png" width="430"/>
+| SVM Confusion Matrix | k-NN Confusion Matrix |
+|---|---|
+| ![SVM](models/svm_confusion_matrix.png) | ![k-NN](models/knn_confusion_matrix.png) |
 
 ### k-NN Hyperparameter Sweep
 
