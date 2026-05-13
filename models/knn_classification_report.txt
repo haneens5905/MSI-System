@@ -1,5 +1,5 @@
-k-NN Classifier -- Material Stream Identification
-Best k = 11  |  weight = distance
+k-nn classifier — material stream identification
+best k=11 | weight=distance
 
               precision    recall  f1-score   support
 
@@ -14,4 +14,4 @@ Best k = 11  |  weight = distance
    macro avg     0.5962    0.5500    0.5467       600
 weighted avg     0.5962    0.5500    0.5467       600
 
-Overall validation accuracy : 0.5500
+overall validation accuracy: 0.5500
