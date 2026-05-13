@@ -283,3 +283,29 @@ python src/realtime_app.py
 | Pillow | Image loading and augmentation |
 | seaborn | Confusion matrix visualization |
 | tqdm | Progress bars during training and extraction |
+
+
+---
+
+## Contributors
+
+<table>
+  <tr>
+    <td align="center">
+      <b>Shaza Moatasem</b><br/>
+      <a href="https://github.com/shaza-22">@shaza-22</a>
+    </td>
+    <td align="center">
+      <b>Ziad Tarek</b><br/>
+      <a href="https://github.com/ziad-91">@ziad-91</a>
+    </td>
+    <td align="center">
+      <b>Seif Waleed</b><br/>
+      <a href="https://github.com/Malware404seif">@Malware404seif</a>
+    </td>
+    <td align="center">
+      <b>Mohamed Ahmed</b><br/>
+      <a href="https://github.com/mohamed-hamza20">@mohamed-hamza20</a>
+    </td>
+  </tr>
+</table>
