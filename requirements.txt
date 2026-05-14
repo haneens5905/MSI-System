@@ -5,3 +5,5 @@ scikit-image
 joblib
 matplotlib
 Pillow
+seaborn
+tqdm
