@@ -1,11 +1,11 @@
-# converts augmented images into fixed-length numerical feature vectors using hog, hsv histogram, and lbp
+# converts augmented images into fixed-length numerical feature vectors using hog, hsv histogram, lbp, gabor, and glcm
 # run: python src/feature_extraction.py
 
 import os
 import cv2
 import numpy as np
 import joblib
-from skimage.feature import hog, local_binary_pattern
+from skimage.feature import hog, local_binary_pattern, graycomatrix, graycoprops
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
@@ -38,6 +38,15 @@ HSV_BINS = [8, 8, 8]  # bins for h, s, v channels → 512 total
 LBP_RADIUS   = 3
 LBP_N_POINTS = 24      # 8 × radius is the standard choice
 LBP_METHOD   = "uniform"
+
+# -- gabor parameters --
+GABOR_SCALES       = [1, 2, 4, 8]       # texture scales to probe
+GABOR_ORIENTATIONS = [0, 30, 60, 90, 120, 150]  # angles in degrees
+
+# -- glcm parameters --
+GLCM_DISTANCES = [1, 3]
+GLCM_ANGLES    = [0, np.pi/4, np.pi/2, 3*np.pi/4]
+GLCM_PROPS     = ['contrast', 'energy', 'homogeneity', 'correlation']
 
 
 # -- feature descriptors --
@@ -86,25 +95,79 @@ def compute_lbp(gray):
     return hist
 
 
+def compute_gabor(gray):
+    # applies gabor filters at multiple scales and orientations
+    # captures texture patterns at different frequencies and directions
+    # each filter response contributes its mean and variance → 4 scales × 6 orientations × 2 = 48 dims
+    features = []
+
+    for scale in GABOR_SCALES:
+        for angle in GABOR_ORIENTATIONS:
+            theta = np.deg2rad(angle)
+            kernel = cv2.getGaborKernel(
+                (21, 21),   # kernel size
+                scale,      # standard deviation (controls scale of texture captured)
+                theta,      # orientation of the filter
+                10.0,       # wavelength of the sinusoidal factor
+                0.5,        # spatial aspect ratio
+                0,          # phase offset
+                ktype=cv2.CV_32F
+            )
+            filtered = cv2.filter2D(gray, cv2.CV_32F, kernel)
+            features.append(filtered.mean())
+            features.append(filtered.var())
+
+    return np.array(features)
+
+
+def compute_glcm(gray):
+    # glcm captures how often pairs of pixel values appear next to each other
+    # from the matrix we extract contrast, energy, homogeneity, and correlation
+    # 4 properties × 4 angles × 2 distances = 32 dims
+    # normalize to 0-255 range first since glcm expects uint8
+    if gray.max() > 0:
+        gray_uint8 = (gray / gray.max() * 255).astype(np.uint8)
+    else:
+        gray_uint8 = gray.astype(np.uint8)
+
+    glcm = graycomatrix(
+        gray_uint8,
+        distances=GLCM_DISTANCES,
+        angles=GLCM_ANGLES,
+        levels=256,
+        symmetric=True,
+        normed=True
+    )
+
+    features = []
+    for prop in GLCM_PROPS:
+        values = graycoprops(glcm, prop).flatten()
+        features.extend(values)
+
+    return np.array(features)
+
+
 # -- combined feature vector --
 
 def extract_features(bgr_image):
     # converts a single bgr image into a fixed-length 1d feature vector
-    # pipeline: resize → grayscale → hog (1764) + hsv hist (512) + lbp (26) → concat → 2302 dims total
+    # pipeline: resize → grayscale → hog (1764) + hsv hist (512) + lbp (26) + gabor (48) + glcm (32) → 2382 dims total
 
     # resize to fixed size
     resized = cv2.resize(bgr_image, IMG_SIZE, interpolation=cv2.INTER_AREA)
 
-    # convert to grayscale for hog and lbp
+    # convert to grayscale for hog, lbp, gabor, and glcm
     gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
 
-    # compute all three descriptors
+    # compute all five descriptors
     hog_feat   = compute_hog(gray)
     color_feat = compute_color_histogram(resized)
     lbp_feat   = compute_lbp(gray)
+    gabor_feat = compute_gabor(gray)
+    glcm_feat  = compute_glcm(gray)
 
     # concatenate into one vector
-    feature_vector = np.concatenate([hog_feat, color_feat, lbp_feat])
+    feature_vector = np.concatenate([hog_feat, color_feat, lbp_feat, gabor_feat, glcm_feat])
     return feature_vector
 
 
@@ -122,7 +185,7 @@ def extract_single_image(image_path):
 
 def process_split(split_dir, class_names):
     # walks through a split folder and extracts features for every image
-    # returns feature matrix x of shape (n, 2302) and label array y of shape (n,)
+    # returns feature matrix x of shape (n, 2382) and label array y of shape (n,)
     features_list = []
     labels_list   = []
 
