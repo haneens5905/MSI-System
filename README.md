@@ -61,14 +61,16 @@ The dataset grows from **1960 to 3000 images — a 53% increase**. Images are th
 
 ### 2. Feature Extraction
 
-Each image is resized to **128×128 pixels** then converted into a **2302-dimensional feature vector** by concatenating three descriptors:
+Each image is resized to **128×128 pixels** then converted into a **2382-dimensional feature vector** by concatenating five descriptors:
 
 | Descriptor | What it captures | Dimensions |
 |------------|-----------------|------------|
 | HOG | Shape and edge structure | 1764 |
 | HSV Color Histogram | Color distribution (lighting-robust) | 512 |
 | LBP | Surface texture | 26 |
-| **Total** | | **2302** |
+| Gabor Filters | Texture at multiple scales and orientations | 48 |
+| GLCM | Surface texture properties (contrast, energy, homogeneity, correlation) | 32 |
+| **Total** | | **2382** |
 
 All feature vectors are standardized using **StandardScaler** (fitted on training data only) before being passed to the classifiers.
 
