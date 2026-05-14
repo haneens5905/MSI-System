@@ -107,7 +107,7 @@ The threshold is configurable via `CONFIDENCE_THRESHOLD` in `realtime_app.py`.
 
 | Model | Best Configuration | Validation Accuracy |
 |-------|-------------------|-------------------|
-| SVM | C=5, RBF kernel | 71.00% |
+| SVM | C=5, RBF kernel | 72.00% |
 | k-NN | k=11, distance weighting | 55.00% |
 
 SVM was selected as the deployment model. k-NN underperforms significantly on the 2302-dimensional feature space due to the **curse of dimensionality** — distances between high-dimensional points become increasingly uniform, making nearest-neighbor search unreliable.
@@ -212,7 +212,7 @@ MSI-System/
 │
 ├── models/
 │   ├── knn_model.pkl               # trained k-NN model
-│   ├── svm_model.pkl               # trained SVM model (see download link below)
+│   ├── svm_model.pkl               # trained SVM model
 │   ├── svm_confusion_matrix.png    # SVM confusion matrix
 │   ├── knn_confusion_matrix.png    # k-NN confusion matrix
 │   ├── knn_experiment_results.png  # k-NN accuracy vs k plot
@@ -241,11 +241,6 @@ MSI-System/
 ```bash
 pip install -r requirements.txt
 ```
-
-### 2. Download the SVM Model
-The trained SVM model is too large for GitHub. Download it and place it in `models/`:
-
-[Download svm_model.pkl from Google Drive](https://drive.google.com/file/d/12YobzdaWK0lZNoNTBtPQbYGBBOTKWwcu/view?usp=sharing)
 
 ---
 
@@ -283,14 +278,16 @@ python src/realtime_app.py
 | Pillow | Image loading and augmentation |
 | seaborn | Confusion matrix visualization |
 | tqdm | Progress bars during training and extraction |
-
-
 ---
 
 ## Contributors
 
 <table>
   <tr>
+    <td align="center">
+      <b>Haneen Hisham</b><br/>
+      <a href="https://github.com/haneens5905">@haneens5905</a>
+    </td>
     <td align="center">
       <b>Shaza Moatasem</b><br/>
       <a href="https://github.com/shaza-22">@shaza-22</a>
