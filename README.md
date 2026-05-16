@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/seaborn-4C72B0?style=flat-square&logo=python&logoColor=white" alt="seaborn" />
 </p>
 
-Automated waste material classification system using SVM and k-NN on image feature vectors, with real-time camera deployment.
+
 
 ---
 
