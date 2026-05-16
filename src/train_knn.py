@@ -1,23 +1,25 @@
 # trains and evaluates a k-nn classifier on the extracted feature vectors
+# uses gridsearchcv with stratified 5-fold cross-validation to find the best hyperparameters
+# scoring is based on f1_macro which penalises weak classes harder than plain accuracy
 # run: python src/train_knn.py
 
 import os
 import joblib
 import numpy as np
-from tqdm import tqdm
 import matplotlib
 matplotlib.use("Agg")  # non-interactive backend, safe on servers
 import matplotlib.pyplot as plt
 
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.metrics import (
     accuracy_score,
+    f1_score,
     classification_report,
     confusion_matrix,
 )
 
 # -- configuration --
-# paths are relative to this script so it works on any machine
 CURRENT_DIR  = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 
@@ -26,16 +28,19 @@ MODELS_DIR   = os.path.join(PROJECT_ROOT, "models")
 
 CLASS_NAMES  = ["glass", "paper", "cardboard", "plastic", "metal", "trash"]
 
-# candidate hyperparameters to search over
-K_VALUES     = [1, 3, 5, 7, 9, 11, 15]
-WEIGHT_MODES = ["uniform", "distance"]
+# search space — metric is the key addition over the previous version
+# manhattan distance handles high-dimensional feature vectors better than euclidean
+# because it is less sensitive to outlier dimensions
+PARAM_GRID = {
+    "n_neighbors": [3, 5, 7, 9, 11],
+    "weights":     ["uniform", "distance"],
+    "metric":      ["euclidean", "manhattan", "minkowski"],
+}
 
 
 # -- data loading --
 
 def load_features():
-    # loads pre-scaled feature matrices saved by feature_extraction.py
-    # raises an error if any required file is missing
     print("loading feature vectors...")
 
     required = ["X_train.npy", "X_val.npy", "y_train.npy", "y_val.npy"]
@@ -57,59 +62,9 @@ def load_features():
     return X_train, y_train, X_val, y_val
 
 
-# -- hyperparameter search --
-
-def run_experiment(X_train, y_train, X_val, y_val):
-    # trains a k-nn for every combination of k and weighting scheme
-    # returns results sorted by validation accuracy (best first)
-    #
-    # weighting schemes:
-    #   uniform  — all k neighbors vote equally
-    #   distance — closer neighbors weigh more (1/distance), better for noisy boundaries
-    print("\nsearching over k values and weighting schemes...")
-    print(f"  k values: {K_VALUES}")
-    print(f"  weights:  {WEIGHT_MODES}\n")
-
-    results = []
-
-    for weight in WEIGHT_MODES:
-        for k in tqdm(K_VALUES, desc=f"weight={weight}", leave=False, unit="k"):
-            knn = KNeighborsClassifier(
-                n_neighbors=k,
-                weights=weight,
-                metric="euclidean",
-                n_jobs=-1,  # parallelize distance computation across all cpu cores
-            )
-            knn.fit(X_train, y_train)
-
-            # evaluate on validation set (no rejection — fair comparison across configs)
-            y_pred_val = knn.predict(X_val)
-            val_acc    = accuracy_score(y_val, y_pred_val)
-
-            # also track training accuracy to detect overfitting
-            # note: k=1 will always give train_acc=1.0, this is expected
-            y_pred_tr = knn.predict(X_train)
-            train_acc = accuracy_score(y_train, y_pred_tr)
-
-            results.append({
-                "k"         : k,
-                "weight"    : weight,
-                "train_acc" : round(train_acc, 4),
-                "val_acc"   : round(val_acc,   4),
-                "model"     : knn,
-            })
-
-            print(f"  k={k:<3} weight={weight:<10} train={train_acc:.4f}  val={val_acc:.4f}")
-
-    # sort by validation accuracy so results[0] is always the best
-    results.sort(key=lambda r: r["val_acc"], reverse=True)
-    return results
-
-
 # -- evaluation helpers --
 
 def print_classification_report(y_true, y_pred, title=""):
-    # prints per-class precision, recall, and f1 for all 6 classes
     report = classification_report(
         y_true,
         y_pred,
@@ -125,15 +80,12 @@ def print_classification_report(y_true, y_pred, title=""):
 
 
 def save_confusion_matrix(y_true, y_pred, save_path):
-    # plots and saves a row-normalized confusion matrix
-    # cells show raw counts, color intensity reflects per-class recall
     cm      = confusion_matrix(y_true, y_pred, labels=list(range(len(CLASS_NAMES))))
     cm_norm = cm.astype(float) / cm.sum(axis=1, keepdims=True).clip(min=1)
 
     fig, ax = plt.subplots(figsize=(9, 7))
     im = ax.imshow(cm_norm, cmap="Blues", vmin=0, vmax=1)
 
-    # annotate each cell with the raw count
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
             ax.text(j, i, cm[i, j], ha="center", va="center",
@@ -153,38 +105,44 @@ def save_confusion_matrix(y_true, y_pred, save_path):
     print(f"  saved: {save_path}")
 
 
-def save_experiment_plot(results, save_path):
-    # line plot of validation accuracy vs k for each weighting scheme
-    # the best overall configuration is highlighted with a gold star
-    fig, ax = plt.subplots(figsize=(9, 5))
-    colors  = {"uniform": "#2196F3", "distance": "#FF5722"}
-    markers = {"uniform": "o",       "distance": "s"}
+def save_cv_results_plot(grid_search, save_path):
+    # plots mean cv f1_macro for every (k, weight, metric) combination
+    # gives a visual summary of how each setting performed across folds
+    results  = grid_search.cv_results_
+    params   = results["params"]
+    scores   = results["mean_test_score"]
 
-    for weight in WEIGHT_MODES:
-        subset = sorted(
-            [r for r in results if r["weight"] == weight],
-            key=lambda r: r["k"],
-        )
-        ks   = [r["k"]       for r in subset]
-        accs = [r["val_acc"] for r in subset]
-        ax.plot(ks, accs, color=colors[weight], marker=markers[weight],
-                linewidth=2, markersize=7, label=f"weight={weight}")
+    metrics  = PARAM_GRID["metric"]
+    weights  = PARAM_GRID["weights"]
+    colors   = {"uniform": "#2196F3", "distance": "#FF5722"}
+    markers  = {"euclidean": "o", "manhattan": "s", "minkowski": "^"}
 
-    # highlight the best configuration
-    best = results[0]
-    ax.scatter(
-        [best["k"]], [best["val_acc"]],
-        color="gold", edgecolors="black",
-        s=200, zorder=5, linewidths=1.5,
-        label=f"best: k={best['k']}, {best['weight']} ({best['val_acc']:.4f})",
-    )
+    fig, axes = plt.subplots(1, len(metrics), figsize=(14, 5), sharey=True)
 
-    ax.set_xlabel("k (number of neighbors)", fontsize=12)
-    ax.set_ylabel("validation accuracy", fontsize=12)
-    ax.set_title("k-nn hyperparameter sweep", fontsize=13)
-    ax.set_xticks(K_VALUES)
-    ax.legend(fontsize=10)
-    ax.grid(True, linestyle="--", alpha=0.4)
+    for ax, metric in zip(axes, metrics):
+        for weight in weights:
+            subset = [
+                (p["n_neighbors"], s)
+                for p, s in zip(params, scores)
+                if p["metric"] == metric and p["weights"] == weight
+            ]
+            subset.sort(key=lambda x: x[0])
+            ks    = [x[0] for x in subset]
+            accs  = [x[1] for x in subset]
+            ax.plot(ks, accs,
+                    color=colors[weight],
+                    marker=markers[metric],
+                    linewidth=2, markersize=7,
+                    label=f"weight={weight}")
+
+        ax.set_title(f"metric={metric}", fontsize=11)
+        ax.set_xlabel("k (neighbors)", fontsize=10)
+        ax.set_xticks(PARAM_GRID["n_neighbors"])
+        ax.grid(True, linestyle="--", alpha=0.4)
+
+    axes[0].set_ylabel("mean cv f1_macro", fontsize=10)
+    axes[0].legend(fontsize=9)
+    fig.suptitle("k-nn gridsearchcv results", fontsize=13)
     plt.tight_layout()
     plt.savefig(save_path, dpi=150)
     plt.close()
@@ -196,51 +154,73 @@ def save_experiment_plot(results, save_path):
 def main():
     os.makedirs(MODELS_DIR, exist_ok=True)
 
-    # step 1: load pre-scaled feature vectors
+    # step 1: load feature vectors
     X_train, y_train, X_val, y_val = load_features()
 
-    # step 2: search over all k and weighting combinations
-    results = run_experiment(X_train, y_train, X_val, y_val)
+    # step 2: gridsearchcv with stratified 5-fold cross-validation
+    # stratified keeps the same class ratio in every fold
+    # f1_macro scoring pushes the model to improve on weak classes, not just easy ones
+    # n_jobs=-1 parallelises distance computation across all cpu cores
+    print(f"\nrunning gridsearchcv...")
+    print(f"  param grid: {PARAM_GRID}")
+    print(f"  cv: stratifiedkfold(n_splits=5)")
+    print(f"  scoring: f1_macro\n")
 
-    # step 3: print top 5 configurations
-    print("\ntop 5 configurations:")
-    print(f"  {'rank':<5} {'k':>3}  {'weight':<12} {'train_acc':>9} {'val_acc':>8}")
-    for rank, r in enumerate(results[:5], start=1):
-        print(f"  {rank:<5} {r['k']:>3}  {r['weight']:<12} {r['train_acc']:>9.4f} {r['val_acc']:>8.4f}")
+    knn = KNeighborsClassifier(n_jobs=-1)
 
-    # step 4: evaluate best model on validation set
-    best     = results[0]
-    best_knn = best["model"]
-    print(f"\nbest configuration: k={best['k']}, weight={best['weight']}, val accuracy={best['val_acc']:.4f}")
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
+    grid_search = GridSearchCV(
+        estimator=knn,
+        param_grid=PARAM_GRID,
+        scoring="f1_macro",
+        cv=cv,
+        n_jobs=-1,
+        verbose=2,
+    )
+
+    grid_search.fit(X_train, y_train)
+
+    print(f"\n  best params : {grid_search.best_params_}")
+    print(f"  best cv f1_macro: {grid_search.best_score_:.4f}")
+
+    # step 3: evaluate best model on held-out validation set
+    best_knn = grid_search.best_estimator_
+
+    print("\nevaluating best model on validation set...")
     y_pred_val = best_knn.predict(X_val)
-    val_acc    = accuracy_score(y_val, y_pred_val)
 
-    print(f"\nper-class report:")
+    val_acc = accuracy_score(y_val, y_pred_val)
+    val_f1  = f1_score(y_val, y_pred_val, average="macro")
+
+    print(f"\n  validation accuracy : {val_acc*100:.2f}%")
+    print(f"  validation f1_macro : {val_f1:.4f}")
+
     report_str = print_classification_report(
         y_val, y_pred_val,
-        title=f"k-nn report [k={best['k']}, weight={best['weight']}]"
+        title=f"k-nn report [{grid_search.best_params_}]"
     )
 
     # save classification report as a text file
     report_path = os.path.join(MODELS_DIR, "knn_classification_report.txt")
     with open(report_path, "w") as f:
         f.write(f"k-nn classifier — material stream identification\n")
-        f.write(f"best k={best['k']} | weight={best['weight']}\n\n")
+        f.write(f"best params: {grid_search.best_params_}\n\n")
         f.write(report_str)
-        f.write(f"\noverall validation accuracy: {val_acc:.4f}\n")
+        f.write(f"\noverall validation accuracy : {val_acc:.4f}\n")
+        f.write(f"overall validation f1_macro : {val_f1:.4f}\n")
     print(f"  saved: knn_classification_report.txt")
 
-    # step 5: save confusion matrix and experiment plot
+    # step 4: save confusion matrix and cv results plot
     save_confusion_matrix(y_val, y_pred_val, os.path.join(MODELS_DIR, "knn_confusion_matrix.png"))
-    save_experiment_plot(results, os.path.join(MODELS_DIR, "knn_experiment_results.png"))
+    save_cv_results_plot(grid_search, os.path.join(MODELS_DIR, "knn_cv_results.png"))
 
-    # step 6: save the best model to disk
+    # step 5: save best model
     model_path = os.path.join(MODELS_DIR, "knn_model.pkl")
     joblib.dump(best_knn, model_path)
     print(f"  saved: knn_model.pkl")
 
-    print(f"\ndone. best k={best['k']}, weight={best['weight']}, final accuracy={val_acc:.4f}")
+    print(f"\ndone. best params={grid_search.best_params_}, accuracy={val_acc*100:.2f}%, f1={val_f1:.4f}")
     return best_knn
 
 

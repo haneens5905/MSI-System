@@ -2,12 +2,21 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="fbf68237-3697-4ce4-a79f-632b88cbb237" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/features/X_train.npy" beforeDir="false" afterPath="$PROJECT_DIR$/features/X_train.npy" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/features/X_val.npy" beforeDir="false" afterPath="$PROJECT_DIR$/features/X_val.npy" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/features/scaler.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/features/scaler.pkl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/models/knn_classification_report.txt" beforeDir="false" afterPath="$PROJECT_DIR$/models/knn_classification_report.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/models/knn_confusion_matrix.png" beforeDir="false" afterPath="$PROJECT_DIR$/models/knn_confusion_matrix.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/models/knn_experiment_results.png" beforeDir="false" afterPath="$PROJECT_DIR$/models/knn_experiment_results.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/models/knn_experiment_results.png" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/models/knn_model.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/models/knn_model.pkl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/models/svm_confusion_matrix.png" beforeDir="false" afterPath="$PROJECT_DIR$/models/svm_confusion_matrix.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/models/svm_model.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/models/svm_model.pkl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/report/MSI_Report.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/report/MSI_Report.pdf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/feature_extraction.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/feature_extraction.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train_knn.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train_knn.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -17,10 +26,10 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 5,
-  "fromUser": false
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3Dg26S8VD0UAwHXbNfydnES31zM" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -29,7 +38,11 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.feature_extraction.executor": "Run",
+    "Python.train_knn.executor": "Run",
+    "Python.train_svm.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
     "git-widget-placeholder": "main",
