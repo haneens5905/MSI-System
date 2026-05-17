@@ -149,13 +149,13 @@ Both models output a confidence score per class via `predict_proba()`. If the hi
 SVM was selected as the deployment model.
 
 ### SVM Confusion Matrix
-![SVM Confusion Matrix](models/svm_confusion_matrix.png)
+<img src="models/svm_confusion_matrix.png" width="500"/>
 
 ### k-NN Confusion Matrix
-![k-NN Confusion Matrix](models/knn_confusion_matrix.png)
+<img src="models/knn_confusion_matrix.png" width="500"/>
 
 ### k-NN GridSearchCV Results
-![k-NN CV Results](models/knn_cv_results.png)
+<img src="models/knn_cv_results.png" width="700"/>
 
 ---
 
