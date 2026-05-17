@@ -155,7 +155,7 @@ SVM was selected as the deployment model.
 <img src="models/knn_confusion_matrix.png" width="500"/>
 
 ### k-NN GridSearchCV Results
-<img src="models/knn_cv_results.png" width="700"/>
+<img src="models/knn_cv_results.png" width="750"/>
 
 ---
 
